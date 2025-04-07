@@ -8,6 +8,7 @@ import { JOBS_LIBRARY_PAGINATION_SIZE } from 'src/constants';
 import { StorageCore } from 'src/cores/storage.core';
 import { Assets } from 'src/db';
 import { OnEvent, OnJob } from 'src/decorators';
+import { MapAsset } from 'src/dtos/asset-response.dto';
 import {
   CreateLibraryDto,
   LibraryResponseDto,
@@ -18,7 +19,6 @@ import {
   ValidateLibraryImportPathResponseDto,
   ValidateLibraryResponseDto,
 } from 'src/dtos/library.dto';
-import { AssetEntity } from 'src/entities/asset.entity';
 import { AssetStatus, AssetType, DatabaseLock, ImmichWorker, JobName, JobStatus, QueueName } from 'src/enum';
 import { ArgOf } from 'src/repositories/event.repository';
 import { AssetSyncResult } from 'src/repositories/library.repository';
@@ -561,7 +561,7 @@ export class LibraryService extends BaseService {
     return JobStatus.SUCCESS;
   }
 
-  private checkExistingAsset(asset: AssetEntity, stat: Stats | null): AssetSyncResult {
+  private checkExistingAsset(asset: MapAsset, stat: Stats | null): AssetSyncResult {
     if (!stat) {
       // File not found on disk or permission error
       if (asset.isOffline) {

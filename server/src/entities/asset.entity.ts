@@ -1,13 +1,13 @@
 import { DeduplicateJoinsPlugin, ExpressionBuilder, Kysely, SelectQueryBuilder, sql } from 'kysely';
 import { jsonArrayFrom, jsonObjectFrom } from 'kysely/helpers/postgres';
-import { AssetFace, AssetFile, AssetJobStatus, columns, Exif, Stack, Tag, User } from 'src/database';
+import { Album, AssetFace, AssetFile, AssetJobStatus, columns, Exif, Stack, Tag, User } from 'src/database';
 import { DB } from 'src/db';
-import { AlbumEntity } from 'src/entities/album.entity';
+import { MapAsset } from 'src/dtos/asset-response.dto';
 import { SharedLinkEntity } from 'src/entities/shared-link.entity';
 import { AssetFileType, AssetStatus, AssetType } from 'src/enum';
 import { TimeBucketSize } from 'src/repositories/asset.repository';
 import { AssetSearchBuilderOptions } from 'src/repositories/search.repository';
-import { anyUuid, asUuid } from 'src/utils/database';
+import { anyUuid, asUuid, toJson } from 'src/utils/database';
 
 export const ASSET_CHECKSUM_CONSTRAINT = 'UQ_assets_owner_checksum';
 
@@ -38,14 +38,14 @@ export class AssetEntity {
   checksum!: Buffer; // sha1 checksum
   duration!: string | null;
   isVisible!: boolean;
-  livePhotoVideo!: AssetEntity | null;
+  livePhotoVideo!: MapAsset | null;
   livePhotoVideoId!: string | null;
   originalFileName!: string;
   sidecarPath!: string | null;
   exifInfo?: Exif;
   tags?: Tag[];
   sharedLinks!: SharedLinkEntity[];
-  albums?: AlbumEntity[];
+  albums?: Album[];
   faces!: AssetFace[];
   stackId?: string | null;
   stack?: Stack | null;
@@ -53,22 +53,23 @@ export class AssetEntity {
   duplicateId!: string | null;
 }
 
+// TODO come up with a better query that only selects the fields we need
 export function withExif<O>(qb: SelectQueryBuilder<DB, 'assets', O>) {
   return qb
     .leftJoin('exif', 'assets.id', 'exif.assetId')
-    .select((eb) => eb.fn.toJson(eb.table('exif')).$castTo<Exif>().as('exifInfo'));
+    .select((eb) => eb.fn.toJson(eb.table('exif')).$castTo<Exif | null>().as('exifInfo'));
 }
 
 export function withExifInner<O>(qb: SelectQueryBuilder<DB, 'assets', O>) {
   return qb
     .innerJoin('exif', 'assets.id', 'exif.assetId')
-    .select((eb) => eb.fn.toJson(eb.table('exif')).as('exifInfo'));
+    .select((eb) => eb.fn.toJson(eb.table('exif')).$castTo<Exif>().as('exifInfo'));
 }
 
 export function withSmartSearch<O>(qb: SelectQueryBuilder<DB, 'assets', O>) {
   return qb
     .leftJoin('smart_search', 'assets.id', 'smart_search.assetId')
-    .select((eb) => eb.fn.toJson(eb.table('smart_search')).as('smartSearch'));
+    .select((eb) => toJson(eb, 'smart_search').as('smartSearch'));
 }
 
 export function withFaces(eb: ExpressionBuilder<DB, 'assets'>, withDeletedFace?: boolean) {
@@ -92,30 +93,34 @@ export function withFiles(eb: ExpressionBuilder<DB, 'assets'>, type?: AssetFileT
 }
 
 export function withFacesAndPeople(eb: ExpressionBuilder<DB, 'assets'>, withDeletedFace?: boolean) {
-  return eb
-    .selectFrom('asset_faces')
-    .leftJoin('person', 'person.id', 'asset_faces.personId')
-    .whereRef('asset_faces.assetId', '=', 'assets.id')
-    .$if(!withDeletedFace, (qb) => qb.where('asset_faces.deletedAt', 'is', null))
-    .select((eb) =>
-      eb
-        .fn('jsonb_agg', [
-          eb
-            .case()
-            .when('person.id', 'is not', null)
-            .then(
-              eb.fn('jsonb_insert', [
-                eb.fn('to_jsonb', [eb.table('asset_faces')]),
-                sql`'{person}'::text[]`,
-                eb.fn('to_jsonb', [eb.table('person')]),
-              ]),
-            )
-            .else(eb.fn('to_jsonb', [eb.table('asset_faces')]))
-            .end(),
-        ])
-        .as('faces'),
-    )
-    .as('faces');
+  return (
+    eb
+      .selectFrom('asset_faces')
+      .leftJoin('person', 'person.id', 'asset_faces.personId')
+      .whereRef('asset_faces.assetId', '=', 'assets.id')
+      .$if(!withDeletedFace, (qb) => qb.where('asset_faces.deletedAt', 'is', null))
+      .select((eb) =>
+        eb
+          .fn('jsonb_agg', [
+            eb
+              .case()
+              .when('person.id', 'is not', null)
+              .then(
+                eb.fn('jsonb_insert', [
+                  eb.fn('to_jsonb', [eb.table('asset_faces')]),
+                  sql`'{person}'::text[]`,
+                  eb.fn('to_jsonb', [eb.table('person')]),
+                ]),
+              )
+              .else(eb.fn('to_jsonb', [eb.table('asset_faces')]))
+              .end(),
+          ])
+          .as('faces'),
+      )
+      // FIXME
+      .$castTo<any>()
+      .as('faces')
+  );
 }
 
 export function hasPeople<O>(qb: SelectQueryBuilder<DB, 'assets', O>, personIds: string[]) {
@@ -149,13 +154,15 @@ export function hasTags<O>(qb: SelectQueryBuilder<DB, 'assets', O>, tagIds: stri
 }
 
 export function withOwner(eb: ExpressionBuilder<DB, 'assets'>) {
-  return jsonObjectFrom(eb.selectFrom('users').selectAll().whereRef('users.id', '=', 'assets.ownerId')).as('owner');
+  return jsonObjectFrom(eb.selectFrom('users').select(columns.user).whereRef('users.id', '=', 'assets.ownerId')).as(
+    'owner',
+  );
 }
 
 export function withLibrary(eb: ExpressionBuilder<DB, 'assets'>) {
-  return jsonObjectFrom(eb.selectFrom('libraries').selectAll().whereRef('libraries.id', '=', 'assets.libraryId')).as(
-    'library',
-  );
+  return jsonObjectFrom(
+    eb.selectFrom('libraries').selectAll('libraries').whereRef('libraries.id', '=', 'assets.libraryId'),
+  ).as('library');
 }
 
 export function withAlbums<O>(qb: SelectQueryBuilder<DB, 'assets', O>, { albumId }: { albumId?: string }) {

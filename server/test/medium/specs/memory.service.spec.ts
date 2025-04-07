@@ -41,7 +41,10 @@ describe(MemoryService.name, () => {
 
       const now = DateTime.fromObject({ year: 2025, month: 2, day: 25 }, { zone: 'utc' });
       const user = mediumFactory.userInsert();
-      const asset = mediumFactory.assetInsert({ ownerId: user.id, localDateTime: now.minus({ years: 1 }).toISO() });
+      const asset = mediumFactory.assetInsert({
+        ownerId: user.id,
+        localDateTime: now.minus({ years: 1 }).toISO() ?? undefined,
+      });
       const jobStatus = mediumFactory.assetJobStatusInsert({ assetId: asset.id });
 
       const userRepo = getRepository('user');
@@ -97,15 +100,15 @@ describe(MemoryService.name, () => {
       for (const dto of [
         {
           ownerId: user.id,
-          localDateTime: now.minus({ year: 1 }).plus({ days: 3 }).toISO(),
+          localDateTime: now.minus({ year: 1 }).plus({ days: 3 }).toISO() ?? undefined,
         },
         {
           ownerId: user.id,
-          localDateTime: now.minus({ year: 1 }).plus({ days: 4 }).toISO(),
+          localDateTime: now.minus({ year: 1 }).plus({ days: 4 }).toISO() ?? undefined,
         },
         {
           ownerId: user.id,
-          localDateTime: now.minus({ year: 1 }).plus({ days: 5 }).toISO(),
+          localDateTime: now.minus({ year: 1 }).plus({ days: 5 }).toISO() ?? undefined,
         },
       ]) {
         const asset = mediumFactory.assetInsert(dto);

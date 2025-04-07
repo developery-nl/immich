@@ -11,7 +11,7 @@ import { JOBS_ASSET_PAGINATION_SIZE } from 'src/constants';
 import { StorageCore } from 'src/cores/storage.core';
 import { AssetFaces, Exif, Person } from 'src/db';
 import { OnEvent, OnJob } from 'src/decorators';
-import { AssetEntity } from 'src/entities/asset.entity';
+import { MapAsset } from 'src/dtos/asset-response.dto';
 import {
   AssetType,
   DatabaseLock,
@@ -134,7 +134,7 @@ export class MetadataService extends BaseService {
     }
   }
 
-  private async linkLivePhotos(asset: AssetEntity, exifInfo: Insertable<Exif>): Promise<void> {
+  private async linkLivePhotos(asset: MapAsset, exifInfo: Insertable<Exif>): Promise<void> {
     if (!exifInfo.livePhotoCID) {
       return;
     }
@@ -376,7 +376,7 @@ export class MetadataService extends BaseService {
     return { width, height };
   }
 
-  private getExifTags(asset: AssetEntity): Promise<ImmichTags> {
+  private getExifTags(asset: MapAsset): Promise<ImmichTags> {
     if (!asset.sidecarPath && asset.type === AssetType.IMAGE) {
       return this.metadataRepository.readTags(asset.originalPath);
     }
@@ -384,7 +384,7 @@ export class MetadataService extends BaseService {
     return this.mergeExifTags(asset);
   }
 
-  private async mergeExifTags(asset: AssetEntity): Promise<ImmichTags> {
+  private async mergeExifTags(asset: MapAsset): Promise<ImmichTags> {
     const [mediaTags, sidecarTags, videoTags] = await Promise.all([
       this.metadataRepository.readTags(asset.originalPath),
       asset.sidecarPath ? this.metadataRepository.readTags(asset.sidecarPath) : null,
@@ -434,7 +434,7 @@ export class MetadataService extends BaseService {
     return tags;
   }
 
-  private async applyTagList(asset: AssetEntity, exifTags: ImmichTags) {
+  private async applyTagList(asset: MapAsset, exifTags: ImmichTags) {
     const tags = this.getTagList(exifTags);
     const results = await upsertTags(this.tagRepository, { userId: asset.ownerId, tags });
     await this.tagRepository.replaceAssetTags(
@@ -443,11 +443,11 @@ export class MetadataService extends BaseService {
     );
   }
 
-  private isMotionPhoto(asset: AssetEntity, tags: ImmichTags): boolean {
+  private isMotionPhoto(asset: MapAsset, tags: ImmichTags): boolean {
     return asset.type === AssetType.IMAGE && !!(tags.MotionPhoto || tags.MicroVideo);
   }
 
-  private async applyMotionPhotos(asset: AssetEntity, tags: ImmichTags, dates: Dates, stats: Stats) {
+  private async applyMotionPhotos(asset: MapAsset, tags: ImmichTags, dates: Dates, stats: Stats) {
     const isMotionPhoto = tags.MotionPhoto;
     const isMicroVideo = tags.MicroVideo;
     const videoOffset = tags.MicroVideoOffset;
@@ -582,7 +582,7 @@ export class MetadataService extends BaseService {
     );
   }
 
-  private async applyTaggedFaces(asset: AssetEntity, tags: ImmichTags) {
+  private async applyTaggedFaces(asset: MapAsset, tags: ImmichTags) {
     if (!tags.RegionInfo?.AppliedToDimensions || tags.RegionInfo.RegionList.length === 0) {
       return;
     }
@@ -629,7 +629,7 @@ export class MetadataService extends BaseService {
       await this.jobRepository.queueAll(jobs);
     }
 
-    const facesToRemove = asset.faces.filter((face) => face.sourceType === SourceType.EXIF).map((face) => face.id);
+    const facesToRemove = asset.faces!.filter((face) => face.sourceType === SourceType.EXIF).map((face) => face.id);
     if (facesToRemove.length > 0) {
       this.logger.debug(`Removing ${facesToRemove.length} faces for asset ${asset.id}: ${asset.originalPath}`);
     }
@@ -649,7 +649,7 @@ export class MetadataService extends BaseService {
     }
   }
 
-  private getDates(asset: AssetEntity, exifTags: ImmichTags, stats: Stats) {
+  private getDates(asset: MapAsset, exifTags: ImmichTags, stats: Stats) {
     const dateTime = firstDateTime(exifTags as Maybe<Tags>, EXIF_DATE_TAGS);
     this.logger.verbose(`Date and time is ${dateTime} for asset ${asset.id}: ${asset.originalPath}`);
 

@@ -1,4 +1,4 @@
-import { AlbumEntity } from 'src/entities/album.entity';
+import { Album } from 'src/database';
 import { AssetEntity } from 'src/entities/asset.entity';
 import { SharedLinkType } from 'src/enum';
 
@@ -7,7 +7,7 @@ export class SharedLinkEntity {
   description!: string | null;
   password!: string | null;
   userId!: string;
-  key!: Buffer; // use to access the inidividual asset
+  key!: Buffer; // use to access the individual asset
   type!: SharedLinkType;
   createdAt!: Date;
   expiresAt!: Date | null;
@@ -15,6 +15,6 @@ export class SharedLinkEntity {
   allowDownload!: boolean;
   showExif!: boolean;
   assets!: AssetEntity[];
-  album?: AlbumEntity;
+  album?: Album;
   albumId!: string | null;
 }

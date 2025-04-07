@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { JOBS_ASSET_PAGINATION_SIZE } from 'src/constants';
 import { StorageCore } from 'src/cores/storage.core';
 import { OnEvent, OnJob } from 'src/decorators';
+import { MapAsset } from 'src/dtos/asset-response.dto';
 import { SystemConfigFFmpegDto } from 'src/dtos/system-config.dto';
-import { AssetEntity } from 'src/entities/asset.entity';
 import {
   AssetFileType,
   AssetPathType,
@@ -162,7 +162,7 @@ export class MediaService extends BaseService {
       return JobStatus.SKIPPED;
     }
 
-    const { previewFile, thumbnailFile, fullsizeFile } = getAssetFiles(asset.files);
+    const { previewFile, thumbnailFile, fullsizeFile } = getAssetFiles(asset.files!);
     const toUpsert: UpsertFileOptions[] = [];
     if (previewFile?.path !== generated.previewPath) {
       toUpsert.push({ assetId: asset.id, path: generated.previewPath, type: AssetFileType.PREVIEW });
@@ -213,7 +213,7 @@ export class MediaService extends BaseService {
     return JobStatus.SUCCESS;
   }
 
-  private async generateImageThumbnails(asset: AssetEntity) {
+  private async generateImageThumbnails(asset: MapAsset) {
     const { image } = await this.getConfig({ withCache: true });
     const previewPath = StorageCore.getImagePath(asset, AssetPathType.PREVIEW, image.preview.format);
     const thumbnailPath = StorageCore.getImagePath(asset, AssetPathType.THUMBNAIL, image.thumbnail.format);
@@ -286,7 +286,7 @@ export class MediaService extends BaseService {
     return { previewPath, thumbnailPath, fullsizePath, thumbhash: outputs[0] as Buffer };
   }
 
-  private async generateVideoThumbnails(asset: AssetEntity) {
+  private async generateVideoThumbnails(asset: MapAsset) {
     const { image, ffmpeg } = await this.getConfig({ withCache: true });
     const previewPath = StorageCore.getImagePath(asset, AssetPathType.PREVIEW, image.preview.format);
     const thumbnailPath = StorageCore.getImagePath(asset, AssetPathType.THUMBNAIL, image.thumbnail.format);
@@ -515,7 +515,7 @@ export class MediaService extends BaseService {
     return name !== VideoContainer.MP4 && !ffmpegConfig.acceptedContainers.includes(name);
   }
 
-  isSRGB(asset: AssetEntity): boolean {
+  isSRGB(asset: MapAsset): boolean {
     const { colorspace, profileDescription, bitsPerSample } = asset.exifInfo ?? {};
     if (colorspace || profileDescription) {
       return [colorspace, profileDescription].some((s) => s?.toLowerCase().includes('srgb'));
