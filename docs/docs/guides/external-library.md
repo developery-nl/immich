@@ -13,7 +13,7 @@ If you want Immich to be able to delete the images in the external library or ad
 immich-server:
     volumes:
         - ${UPLOAD_LOCATION}:/usr/src/app/upload
-+       - /home/user/photos1:/home/user/photos1:ro
++       - /home/user/photos1:/usr/src/app/external:ro
 +       - /mnt/photos2:/mnt/photos2:ro # you can delete this line if you only have one mount point, or you can add more lines if you have more than two
 ```
 
