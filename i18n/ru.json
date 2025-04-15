@@ -533,7 +533,7 @@
   "backup_controller_page_backup_sub": "Загруженные фото и видео",
   "backup_controller_page_created": "Создано: {}",
   "backup_controller_page_desc_backup": "Включите резервное копирование в активном режиме, чтобы автоматически загружать новые объекты при открытии приложения.",
-  "backup_controller_page_excluded": "Исключены:",
+  "backup_controller_page_excluded": "Исключены: ",
   "backup_controller_page_failed": "Неудачных ({})",
   "backup_controller_page_filename": "Имя файла: {} [{}]",
   "backup_controller_page_id": "ID: {}",
